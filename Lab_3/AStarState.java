@@ -1,5 +1,3 @@
-package lab3;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -15,9 +13,9 @@ public class AStarState
   /** This is a reference to the map that the A* algorithm is navigating. **/
   private Map2D map;
 
-  private HashMap<Location, Waypoint> openWaypoints = new HashMap<>();
+  private HashMap<Integer, Waypoint> openWaypoints = new HashMap<>();
 
-  private HashMap<Location, Waypoint> closeWaypoints = new HashMap<>();
+  private HashMap<Integer, Waypoint> closeWaypoints = new HashMap<>();
 
 
   /**
@@ -42,8 +40,7 @@ public class AStarState
    * with the minimum total cost.  If there are no open waypoints, this method
    * returns <code>null</code>.
    **/
-  public Waypoint getMinOpenWaypoint()
-  {
+  public Waypoint getMinOpenWaypoint() {
     if (openWaypoints.size() == 0) return null;
 
     ArrayList<Waypoint> waypoints = new ArrayList<>(openWaypoints.values());
@@ -72,12 +69,12 @@ public class AStarState
    **/
   public boolean addOpenWaypoint(Waypoint newWP)
   {
-    if (openWaypoints.get(newWP.getLocation()) == null) {
-      openWaypoints.put(newWP.getLocation(), newWP);
+    if (openWaypoints.get(newWP.getLocation().hashCode()) == null) {
+      openWaypoints.put(newWP.getLocation().hashCode(), newWP);
       return false;
     } else {
-      if (openWaypoints.get(newWP.getLocation()).getPreviousCost() > newWP.getPreviousCost()) {
-        openWaypoints.put(newWP.getLocation(), newWP);
+      if (openWaypoints.get(newWP.getLocation().hashCode()).getPreviousCost() > newWP.getPreviousCost()) {
+        openWaypoints.put(newWP.getLocation().hashCode(), newWP);
         return true;
       }
     }
@@ -97,7 +94,7 @@ public class AStarState
    * This method moves the waypoint at the specified location from the
    * open list to the closed list.
    **/
-  public void closeWaypoint(Location loc)
+  public void closeWaypoint(int loc)
   {
     closeWaypoints.put(loc, openWaypoints.remove(loc));
   }
@@ -106,7 +103,7 @@ public class AStarState
    * Returns true if the collection of closed waypoints contains a waypoint
    * for the specified location.
    **/
-  public boolean isLocationClosed(Location loc)
+  public boolean isLocationClosed(int loc)
   {
     return closeWaypoints.containsKey(loc);
   }

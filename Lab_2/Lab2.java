@@ -1,5 +1,3 @@
-package lab2;
-
 public class Lab2 {
   public static double computeArea(Point3d a, Point3d b, Point3d c) throws Exception {
     if (a.equals(b) || b.equals(c) || c.equals(a)) {
@@ -16,7 +14,7 @@ public class Lab2 {
 
   public static void main(String[] args) {
     Point3d a = new Point3d();
-    Point3d b = new Point3d(3, 4, 5);
+    Point3d b = new Point3d();
     Point3d c = new Point3d(5, 6, 0);
 
     try {

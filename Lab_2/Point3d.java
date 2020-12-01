@@ -1,5 +1,3 @@
-package lab2;
-
 public class Point3d extends Point2d {
   private double zAxis;
 

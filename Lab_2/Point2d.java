@@ -1,5 +1,3 @@
-package lab2;
-
 public class Point2d {
   private double xAxis;
   private double yAxis;
