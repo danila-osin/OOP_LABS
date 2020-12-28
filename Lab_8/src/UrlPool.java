@@ -1,63 +1,72 @@
-import java.util.ArrayList;
-import java.util.LinkedList;
 
-public class UrlPool {
-    private final LinkedList<UrlDepthPair> pendingURLs;
-    public LinkedList<UrlDepthPair> processedURLs;
-    private final ArrayList<String> seenURLs = new ArrayList<>();
-    public int waitingThreads;
-    int maxDepth;
+import java.util.*;
+public class URLPool {
+  public static int max_depth;
+  private LinkedList<URLDepthPair> pendingURLs;
+  public LinkedList<URLDepthPair> processedURLs;
+  public ArrayList<String> seenURLs = new ArrayList<String>();
 
-    public UrlPool(int maxDepthPair) {
-        maxDepth = maxDepthPair;
-        waitingThreads = 0;
-        pendingURLs = new LinkedList<>();
-        processedURLs = new LinkedList<>();
+  public int waitingThreads;
+
+  public URLPool(int d) {
+    waitingThreads = 0;
+    pendingURLs = new LinkedList<URLDepthPair>();
+    processedURLs = new LinkedList<URLDepthPair>();
+    max_depth = d;
+  }
+
+  public synchronized int getWaitThreads() {
+    return waitingThreads;
+  }
+
+  public synchronized int size() {
+    return pendingURLs.size();
+  }
+
+  public synchronized void decrimentWaitingThreads() {
+    waitingThreads--;
+  }
+
+  public synchronized boolean put(URLDepthPair depthPair) {
+    boolean isAdded = false;
+
+    if (depthPair.getDepth() < max_depth && !processedURLs.contains(depthPair.getURL())) {
+      pendingURLs.addLast(depthPair);
+      isAdded = true;
+      this.notify();
+    } else {
+      addSeenURL(depthPair);
     }
-    public synchronized int getWaitThreads() {
-        return waitingThreads;
+
+    return isAdded;
+  }
+
+  public synchronized URLDepthPair get() {
+
+    URLDepthPair depthPair = null;
+    if (pendingURLs.size() == 0) {
+      waitingThreads++;
+      try {
+        this.wait();
+      }
+      catch (InterruptedException interruptedException) {
+        System.err.println("InterruptedException: " + interruptedException.getMessage());
+        return null;
+      }
     }
+    if(waitingThreads>0)waitingThreads--;
+    depthPair = pendingURLs.pop();
+    addSeenURL(depthPair);
+    processedURLs.add(depthPair);
+    return depthPair;
+  }
 
-    public synchronized int size() { return pendingURLs.size(); }
+  private synchronized void addSeenURL(URLDepthPair dp) {
+    if(!seenURLs.contains(dp.toString()))
+      seenURLs.add(dp.toString());
+  }
 
-    public synchronized void put(UrlDepthPair depthPair) {
-        if (waitingThreads != 0) {
-            --waitingThreads;
-            this.notify();
-        }
-        if (!seenURLs.contains(depthPair.url) &
-                !pendingURLs.contains(depthPair)) {
-            if (depthPair.depth < maxDepth) {
-                pendingURLs.add(depthPair);
-            }
-            else {
-                processedURLs.add(depthPair);
-                seenURLs.add(depthPair.url);
-            }
-        }
-    }
-    public synchronized UrlDepthPair get() {
-        UrlDepthPair myDepthPair;
-        while (pendingURLs.isEmpty()) {
-            waitingThreads++;
-            try {
-                this.wait();
-            }
-            catch (InterruptedException e) {
-                System.err.println("MalformedURLException: " + e.getMessage());
-                return null;
-            }
-        }
-        myDepthPair = pendingURLs.pop();
-
-        while (seenURLs.contains(myDepthPair.url)) {
-
-            myDepthPair = pendingURLs.pop();
-        }
-
-        processedURLs.add(myDepthPair);
-        seenURLs.add(myDepthPair.url);
-
-        return myDepthPair;
-    }
+  public synchronized ArrayList<String> getSeenList() {
+    return seenURLs;
+  }
 }

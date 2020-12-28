@@ -1,33 +1,26 @@
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.util.LinkedList;
-import java.util.logging.*;
+
+import java.util.*;
+
 public class CrawlerTask implements Runnable {
-    public UrlDepthPair depthPair;
-    public UrlPool pool;
+  public URLDepthPair depthPair;
 
-    public CrawlerTask (UrlPool newPool) {
-        pool = newPool;
-    }
+  public URLPool myPool;
 
-    public void run() {
-        depthPair = pool.get();
-        int depth = depthPair.depth;
-        LinkedList<String> linksList = null;
-        try {
-            linksList = Crawler.getAllLinks(depthPair);
-        }
-        catch (IOException ex) {
-            Logger.getLogger(CrawlerTask.class.getName()).log(Level.SEVERE,null, ex);
-        }
-        for (String newURL : linksList) {
-            UrlDepthPair newDepthPair = null;
-            try {
-                newDepthPair = new UrlDepthPair(newURL, depth + 1);
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            }
-            pool.put(newDepthPair);
-        }
+  public CrawlerTask(URLPool pool) {
+    myPool = pool;
+  }
+
+  public void run() {
+    depthPair = myPool.get();
+
+    int myDepth = depthPair.getDepth();
+
+    LinkedList<String> linksList = new LinkedList<String>();
+    linksList = Crawler.getAllLinks(depthPair);
+
+    for (String newURL : linksList) {
+      URLDepthPair newDepthPair = new URLDepthPair(newURL, myDepth + 1);
+      myPool.put(newDepthPair);
     }
+  }
 }

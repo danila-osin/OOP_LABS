@@ -1,88 +1,148 @@
+
+import java.util.*;
 import java.io.*;
-import java.net.Socket;
-import java.net.URL;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.net.*;
 
 public class Crawler {
-    public LinkedList<UrlDepthPair> proccessed;
+  static int numThreads = 10;
+  static int timeOut = 1000;
+  public static void main(String[] args) {
 
-    public Crawler() {
-        proccessed = new LinkedList<>();
-    }
+    URLDepthPair currentDepthPair = new URLDepthPair("http://ntsk.ru/");
+    ArrayList<String> seenURLs = new ArrayList<String>();
+    seenURLs.add(currentDepthPair.getURL());
 
-    public void startParsing(URL baseUrl, int maxDepth, int currentDepth) {
-        if (currentDepth > maxDepth) return;
+    URLPool pool = new URLPool(2);
+    pool.put(currentDepthPair);
 
-        LinkedList<UrlDepthPair> links = getAllLinks(baseUrl, currentDepth);
+    int activeAmount = Thread.activeCount();
 
-        for (UrlDepthPair link: links) {
-            startParsing(link.realUrl, maxDepth, currentDepth + 1);
-        }
+    while (pool.getWaitThreads() != numThreads) {
 
-        proccessed.addAll(links);
-    }
-
-    private static LinkedList<UrlDepthPair> getAllLinks(URL url, int depth) {
+      if (Thread.activeCount() - activeAmount < numThreads) {
+        CrawlerTask crawler = new CrawlerTask(pool);
+        new Thread(crawler).start();
+      }
+      else {
         try {
-            LinkedList<UrlDepthPair> links = new LinkedList<>();
-
-            int port = 80;
-            String hostname = url.getHost();
-
-            Socket socket = new Socket(hostname, port);
-            socket.setSoTimeout(3000);
-
-            OutputStream outStream = socket.getOutputStream();
-
-            PrintWriter writer = new PrintWriter(outStream, true);
-
-            if (url.getPath().length() == 0) {
-                writer.println("GET / HTTP/1.1");
-                writer.println("Host: " + hostname);
-                writer.println("Accept: text/html");
-                writer.println("Accept-Language: en,en-US;q=0.9,ru;q=0.8");
-                writer.println("Connection: close");
-                writer.println();
-            }
-            else {
-                writer.println("GET " + url.getPath() + " HTTP/1.1");
-                writer.println("Host: " + hostname);
-                writer.println("Accept: text/html");
-                writer.println("Accept-Language: en,en-US;q=0.9,ru;q=0.8");
-                writer.println("Connection: close");
-                writer.println();
-            }
-
-            InputStream input = socket.getInputStream();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(input));
-
-            String htmlLine;
-
-            Pattern patternURL = Pattern.compile(
-                    "(href=\"http|href=\"https)://([\\w_-]+(?:(?:\\.[\\w_-]+)+))([\\w.,@?^=%&:/~+#-]*[\\w@?^=%&/~+#-])?"
-            );
-
-            while ((htmlLine = reader.readLine()) != null) {
-                Matcher matcherURL = patternURL.matcher(htmlLine);
-                while (matcherURL.find()) {
-                    String link = htmlLine.substring(matcherURL.start() + 6,
-                            matcherURL.end());
-
-                    links.add(new UrlDepthPair(link, depth));
-//                    if (links.size() >= 10) return links;
-                }
-            }
-            socket.close();
-
-            return links;
-        } catch (Exception e) {
-            System.out.print(e.getMessage());
-            System.out.print(Arrays.toString(e.getStackTrace()));
-
-            return new LinkedList<>();
+          Thread.sleep(100);
         }
+        catch (InterruptedException ie) {
+          System.out.println("Caught unexpected: InterruptedException, ignoring...");
+        }
+
+      }
     }
+    for(String s : pool.seenURLs) {
+      System.out.println(s);
+    }
+
+    System.out.println(pool.seenURLs.size());
+    System.exit(0);
+
+  }
+
+  public static LinkedList<String> getAllLinks(URLDepthPair myDepthPair) {
+
+    LinkedList<String> URLs = new LinkedList<String>();
+    Socket sock;
+
+    try {
+      sock = new Socket(myDepthPair.getWebHost(), 80);
+    }
+    catch (UnknownHostException e) {
+      System.err.println("UnknownHostException: " + e.getMessage());
+      return URLs;
+    }
+    catch (IOException ex) {
+      return URLs;
+    }
+
+    try {
+      sock.setSoTimeout(timeOut);
+    }
+    catch (SocketException exc) {
+      System.err.println("SocketException: " + exc.getMessage());
+      return URLs;
+    }
+
+    String docPath = myDepthPair.getDocPath();
+    String webHost = myDepthPair.getWebHost();
+
+    OutputStream outStream;
+
+    try {
+      outStream = sock.getOutputStream();
+    }
+    catch (IOException e) {
+      return URLs;
+    }
+
+    PrintWriter printWriter = new PrintWriter(outStream, true);
+    printWriter.println("GET " + docPath + " HTTP/1.1");
+    printWriter.println("Host: " + webHost);
+    printWriter.println("Connection: close");
+    printWriter.println();
+
+    InputStream inStream;
+    try {
+      inStream = sock.getInputStream();
+    }
+    catch (IOException ioException){
+      System.err.println("IOException: " + ioException.getMessage());
+      return URLs;
+    }
+    InputStreamReader inStreamReader = new InputStreamReader(inStream);
+    BufferedReader BuffReader = new BufferedReader(inStreamReader);
+
+    while (true) {
+      String line;
+      try {
+        line = BuffReader.readLine();
+      }
+      catch (IOException e) {
+        return URLs;
+      }
+      if (line == null)
+        break;
+      int beginIndex = 0;
+      int endIndex = 0;
+      int index = 0;
+
+      while (true) {
+        String START_URL = "a href=\"";
+        String END_URL = "\"";
+
+        index = line.indexOf(START_URL, index);
+        if (index == -1)
+          break;
+        index += START_URL.length();
+        beginIndex = index;
+
+        endIndex = line.indexOf(END_URL, index);
+        index = endIndex;
+
+        try {
+          String newLink = line.substring(beginIndex, endIndex);
+          if(URLs.contains(newLink))
+            continue;
+
+          if(newLink.startsWith("http")) {
+            URLs.add(newLink);
+          }else if(!newLink.startsWith("tel")) {
+            if(newLink.startsWith("/"))
+              URLs.add("http://"+webHost+""+newLink);
+            else
+              URLs.add("http://"+webHost+"/"+newLink);
+          }
+
+        }catch(Exception exception) {
+          break;
+        }
+
+      }
+
+    }
+    return URLs;
+  }
 }
